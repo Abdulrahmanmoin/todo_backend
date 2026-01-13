@@ -10,6 +10,7 @@ This is a FastAPI-based backend for the Todo application with authentication and
 - SQLModel ORM with PostgreSQL
 - CORS configuration for frontend integration
 - Proper error handling
+- Containerized deployment support
 
 ## Project Structure
 
@@ -89,3 +90,38 @@ This will start the server with auto-reload enabled on port 8000.
 The API includes automatic OpenAPI documentation available at:
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
+
+## Docker Deployment
+
+This backend can be deployed using Docker. A Dockerfile is included for easy containerization.
+
+### Building the Docker Image
+
+```bash
+# From the backend directory
+docker build -t todo-backend .
+```
+
+### Running with Docker
+
+```bash
+# Run the container
+docker run -p 8000:8000 \
+  -e DATABASE_URL=postgresql+asyncpg://user:password@localhost/todo_db \
+  -e JWT_SECRET_KEY=your-super-secret-key-change-in-production \
+  -e JWT_ALGORITHM=HS256 \
+  -e ACCESS_TOKEN_EXPIRE_MINUTES=30 \
+  -e ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000 \
+  todo-backend
+```
+
+### Deploying to Hugging Face Spaces
+
+To deploy this backend on Hugging Face Spaces using Docker:
+
+1. Create a Space with Docker Container type
+2. Push your code to the Space repository
+3. Ensure your Dockerfile is in the root of the backend directory
+4. Configure the environment variables in the Space settings
+
+The application will be available at port 8000 inside the container.

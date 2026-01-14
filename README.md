@@ -1,3 +1,14 @@
+---
+title: Todo Backend Hackathon 2
+emoji: 🌖
+colorFrom: pink
+colorTo: blue
+sdk: docker
+pinned: false
+---
+
+Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+
 # Todo Backend API
 
 This is a FastAPI-based backend for the Todo application with authentication and task management capabilities.

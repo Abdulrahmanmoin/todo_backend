@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # CORS settings
-    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:8000"
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:7860"
 
     # Better Auth settings (if using)
     BETTER_AUTH_SECRET: str = ""

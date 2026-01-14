@@ -61,12 +61,12 @@ backend/
    JWT_SECRET_KEY=your-super-secret-key-change-in-production
    JWT_ALGORITHM=HS256
    ACCESS_TOKEN_EXPIRE_MINUTES=30
-   ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
+   ALLOWED_ORIGINS=http://localhost:3000,http://localhost:7860
    ```
 
 3. Run the application:
    ```bash
-   uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
+   uvicorn src.main:app --reload --host 0.0.0.0 --port 7860
    ```
 
 ## API Endpoints
@@ -94,13 +94,13 @@ To run the application in development mode:
 python -m src.main
 ```
 
-This will start the server with auto-reload enabled on port 8000.
+This will start the server with auto-reload enabled on port 7860.
 
 ## Documentation
 
 The API includes automatic OpenAPI documentation available at:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
+- Swagger UI: `http://localhost:7860/docs`
+- ReDoc: `http://localhost:7860/redoc`
 
 ## Docker Deployment
 
@@ -117,12 +117,12 @@ docker build -t todo-backend .
 
 ```bash
 # Run the container
-docker run -p 8000:8000 \
+docker run -p 7860:7860 \
   -e DATABASE_URL=postgresql+asyncpg://user:password@localhost/todo_db \
   -e JWT_SECRET_KEY=your-super-secret-key-change-in-production \
   -e JWT_ALGORITHM=HS256 \
   -e ACCESS_TOKEN_EXPIRE_MINUTES=30 \
-  -e ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000 \
+  -e ALLOWED_ORIGINS=http://localhost:3000,http://localhost:7860 \
   todo-backend
 ```
 
@@ -135,4 +135,4 @@ To deploy this backend on Hugging Face Spaces using Docker:
 3. Ensure your Dockerfile is in the root of the backend directory
 4. Configure the environment variables in the Space settings
 
-The application will be available at port 8000 inside the container.
+The application will be available at port 7860 inside the container.

@@ -17,6 +17,25 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 
 
+def verify_token(token: str) -> Dict[str, Any]:
+    """Verify a JWT token and return its payload."""
+    from jose import jwt
+    from ..config import settings
+    try:
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM]
+        )
+        return payload
+    except Exception as e:
+        from fastapi import HTTPException, status
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Could not validate credentials: {str(e)}"
+        )
+
+
 # Password hashing context
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

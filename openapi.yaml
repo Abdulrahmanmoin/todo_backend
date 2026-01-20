@@ -1,0 +1,292 @@
+openapi: 3.0.3
+info:
+  title: Todo AI Chatbot API
+  description: Backend API for the Todo AI Chatbot using FastAPI, OpenAI Agents, and MCP Server
+  version: 0.1.0
+servers:
+  - url: http://localhost:8000
+    description: Development server
+  - url: https://api.todo-ai-chatbot.com
+    description: Production server
+
+paths:
+  /:
+    get:
+      summary: Root endpoint
+      description: Returns a welcome message
+      responses:
+        '200':
+          description: Welcome message
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Welcome to the Todo AI Chatbot API"
+
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+
+  /api/{user_id}/chat:
+    post:
+      summary: Chat with the AI assistant
+      description: Endpoint for managing todo tasks through natural language conversation with the AI assistant.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: Unique identifier of the authenticated user
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  description: User's natural language message
+                  example: "add buy groceries to my list"
+                conversation_id:
+                  type: integer
+                  description: Existing conversation ID, if continuing a conversation
+                  example: 123
+      responses:
+        '200':
+          description: Successful response from the AI assistant
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  conversation_id:
+                    type: integer
+                    description: ID of the conversation (new or existing)
+                    example: 123
+                  response:
+                    type: string
+                    description: AI assistant's response to the user
+                    example: "I've added 'buy groceries to my list' to your tasks."
+                  tool_calls:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Name of the MCP tool called
+                          example: "add_task"
+                        arguments:
+                          type: object
+                          description: Arguments passed to the tool
+                        result:
+                          type: object
+                          description: Result returned by the tool
+        '400':
+          description: Invalid request body or malformed input
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+        '401':
+          description: Unauthorized - Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+        '403':
+          description: Forbidden - User attempting to access another user's data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  detail:
+                    type: string
+
+  /api/{user_id}/conversations:
+    get:
+      summary: Get user's conversations
+      description: Retrieve all conversations for a specific user
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: Unique identifier of the authenticated user
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of user's conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    user_id:
+                      type: string
+                      example: "user123"
+                    created_at:
+                      type: string
+                      format: date-time
+                      example: "2026-01-17T12:00:00Z"
+                    updated_at:
+                      type: string
+                      format: date-time
+                      example: "2026-01-17T12:30:00Z"
+        '401':
+          description: Unauthorized - Missing or invalid authentication token
+        '403':
+          description: Forbidden - User ID mismatch
+
+  /api/{user_id}/conversations/{conversation_id}/messages:
+    get:
+      summary: Get messages in a conversation
+      description: Retrieve all messages in a specific conversation with pagination support
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          description: Unique identifier of the authenticated user
+          schema:
+            type: string
+        - name: conversation_id
+          in: path
+          required: true
+          description: ID of the conversation
+          schema:
+            type: integer
+        - name: skip
+          in: query
+          description: Number of messages to skip (for pagination)
+          schema:
+            type: integer
+            default: 0
+        - name: limit
+          in: query
+          description: Maximum number of messages to return (for pagination)
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+      responses:
+        '200':
+          description: List of messages in the conversation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: integer
+                      example: 1
+                    conversation_id:
+                      type: integer
+                      example: 123
+                    sender_type:
+                      type: string
+                      enum: [user, assistant, tool]
+                      example: "user"
+                    content:
+                      type: string
+                      example: "add buy groceries to my list"
+                    timestamp:
+                      type: string
+                      format: date-time
+                      example: "2026-01-17T12:00:00Z"
+        '401':
+          description: Unauthorized - Missing or invalid authentication token
+        '403':
+          description: Forbidden - User ID mismatch
+        '404':
+          description: Conversation not found or access denied
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ChatRequest:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: User's natural language message
+        conversation_id:
+          type: integer
+          description: Existing conversation ID, if continuing a conversation
+
+    ChatResponse:
+      type: object
+      properties:
+        conversation_id:
+          type: integer
+          description: ID of the conversation (new or existing)
+        response:
+          type: string
+          description: AI assistant's response to the user
+        tool_calls:
+          type: array
+          items:
+            $ref: '#/components/schemas/ToolCall'
+
+    ToolCall:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the MCP tool called
+        arguments:
+          type: object
+          description: Arguments passed to the tool
+        result:
+          type: object
+          description: Result returned by the tool
+
+security:
+  - BearerAuth: []

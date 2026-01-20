@@ -2,7 +2,7 @@ import os
 import urllib.parse
 from dotenv import load_dotenv
 from typing import AsyncGenerator
-from sqlmodel import create_engine, Session
+from sqlmodel import create_engine, Session, SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
 

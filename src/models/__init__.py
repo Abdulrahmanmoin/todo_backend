@@ -3,6 +3,8 @@
 from .user import User, UserCreate, UserRead, UserUpdate, UserLogin
 from .task import Task, TaskCreate, TaskRead, TaskUpdate, TaskUpdateStatus
 from .token_blacklist import TokenBlacklist, TokenBlacklistCreate, TokenBlacklistRead
+from .conversation import Conversation, ConversationCreate, ConversationRead, ConversationUpdate
+from .message import Message, MessageCreate, MessageRead
 
 __all__ = [
     "User",
@@ -17,5 +19,12 @@ __all__ = [
     "TaskUpdateStatus",
     "TokenBlacklist",
     "TokenBlacklistCreate",
-    "TokenBlacklistRead"
+    "TokenBlacklistRead",
+    "Conversation",
+    "ConversationCreate",
+    "ConversationRead",
+    "ConversationUpdate",
+    "Message",
+    "MessageCreate",
+    "MessageRead"
 ]

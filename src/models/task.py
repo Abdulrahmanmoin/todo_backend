@@ -2,13 +2,28 @@ from sqlmodel import SQLModel, Field, Relationship
 from datetime import datetime
 from typing import Optional
 import uuid
+import html
+import re
 
 
 class TaskBase(SQLModel):
     """Base model for Task with common fields"""
     title: str = Field(max_length=200, nullable=False)
-    description: Optional[str] = Field(default=None)
+    description: Optional[str] = Field(default=None, max_length=1000)
     is_completed: bool = Field(default=False)
+
+    def sanitize_fields(self):
+        """Sanitize input fields to prevent XSS and other injection attacks."""
+        if hasattr(self, 'title') and self.title:
+            # Remove potentially harmful HTML tags and characters
+            self.title = html.escape(str(self.title).strip())
+            # Ensure title is not empty after sanitization
+            if not self.title:
+                raise ValueError("Title cannot be empty after sanitization")
+
+        if hasattr(self, 'description') and self.description:
+            # Sanitize description
+            self.description = html.escape(str(self.description).strip())
 
 
 class Task(TaskBase, table=True):
@@ -48,6 +63,13 @@ class TaskUpdate(SQLModel):
     description: Optional[str] = None
     is_completed: Optional[bool] = None
     completed_at: Optional[datetime] = None
+
+    def sanitize_fields(self):
+        """Sanitize input fields to prevent XSS and other injection attacks."""
+        if self.title:
+            self.title = html.escape(str(self.title).strip())
+        if self.description:
+            self.description = html.escape(str(self.description).strip())
 
 
 class TaskUpdateStatus(SQLModel):

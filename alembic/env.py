@@ -8,6 +8,8 @@ from sqlmodel import SQLModel
 # Import your models here to register them with Alembic
 from backend.src.models.user import User
 from backend.src.models.task import Task
+from backend.src.models.conversation import Conversation
+from backend.src.models.message import Message
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

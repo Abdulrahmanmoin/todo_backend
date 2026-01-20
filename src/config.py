@@ -25,6 +25,7 @@ if not os.environ.get("DATABASE_URL") and not os.environ.get("JWT_SECRET_KEY"):
 class Settings(BaseSettings):
     # Database settings
     DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost/todo_db"
+    DATABASE_ECHO: bool = False
 
     # JWT settings
     JWT_SECRET_KEY: str = "your-secret-key-change-in-production"

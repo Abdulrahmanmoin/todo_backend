@@ -17,10 +17,11 @@ from sqlmodel import SQLModel, create_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from .database import get_session, get_async_session
-from .models import User, Task  # Import your models
+from .database import get_session, get_async_session, init_db
+from .models import *  # Import all models to ensure they are registered
 from .routers import auth, tasks  # Import your routers
 from .api import auth as api_auth, tasks as api_tasks  # Import the new API endpoints
+from .api.chat import router as chat_router # Import chat API
 from .config import settings
 
 
@@ -32,20 +33,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     # Startup
     print("Application starting up...")
-
-    # Initialize database
-    # Note: In a real application, you'd typically run migrations here
-
+    try:
+        await init_db()
+        print("Database initialized successfully.")
+    except Exception as e:
+        print(f"Error initializing database: {e}")
     yield
-
     # Shutdown
     print("Application shutting down...")
 
 
-# Create FastAPI app instance with proper configuration
+# Create FastAPI app instance
 app = FastAPI(
     title="Todo API",
-    description="A FastAPI application for managing todos with authentication",
+    description="A FastAPI application for managing todos with AI assistance",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -66,20 +67,27 @@ app.add_middleware(
 security = HTTPBearer()
 
 
-# Basic health check route
+# Include routers
+# Note: AI chat router included FIRST to ensure no shadowing by other routers using /api prefix
+app.include_router(chat_router, prefix="/api", tags=["chat"])
+app.include_router(api_tasks.router, prefix="/api", tags=["API Tasks"])
+app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(api_auth.router, prefix="/api/v1/api", tags=["API Authentication"])
+app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["Tasks"])
+
+
+# Health check endpoint
 @app.get("/health", tags=["Health"])
 async def health_check():
     """
     Basic health check endpoint to verify the API is running.
     """
-    return {"status": "ok", "message": "Todo API is running"}
+    return {"status": "ok", "message": "Todo AI Chatbot API is running"}
 
 
-# Include routers
-app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
-app.include_router(api_auth.router, prefix="/api/v1/api", tags=["API Authentication"])
-app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["Tasks"])
-app.include_router(api_tasks.router, prefix="/api", tags=["API Tasks"])
+@app.get("/api/test-route")
+async def test_route():
+    return {"message": "API prefix is working"}
 
 
 # Global error handlers
@@ -95,68 +103,9 @@ async def internal_error_handler(request, exc):
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
-# JWT authentication dependency
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
-    session: AsyncSession = Depends(get_async_session)
-) -> User:
-    """
-    Get current authenticated user from JWT token.
-    This function is currently not used directly - the auth utility function is used instead.
-    """
-    try:
-        # Decode the JWT token
-        payload = jwt.decode(
-            credentials.credentials,
-            settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM]
-        )
-        user_id_str: str = payload.get("user_id")
-
-        if user_id_str is None:
-            raise HTTPException(
-                status_code=401,
-                detail="Could not validate credentials"
-            )
-
-        # Convert string to UUID
-        try:
-            import uuid
-            user_id = uuid.UUID(user_id_str)
-        except ValueError:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid user ID format"
-            )
-
-        # Fetch user from database
-        user = await session.get(User, user_id)
-        if user is None:
-            raise HTTPException(
-                status_code=401,
-                detail="Could not validate credentials"
-            )
-
-        return user
-
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=401,
-            detail="Token has expired"
-        )
-    except jwt.JWTError:
-        raise HTTPException(
-            status_code=401,
-            detail="Could not validate credentials"
-        )
-
-
 # Root route
 @app.get("/", tags=["Root"])
 async def root():
-    """
-    Root endpoint for the API.
-    """
     return {
         "message": "Welcome to the Todo API",
         "version": "1.0.0",

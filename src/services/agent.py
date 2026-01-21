@@ -1,9 +1,12 @@
 """Agent service using OpenAI Agent SDK to integrate with MCP tools for task management."""
 
 import json
+import os
 from typing import Dict, Any, Optional, List
+from openai import AsyncOpenAI
+
 try:
-    from agents import Agent, Runner
+    from agents import Agent, Runner, OpenAIChatCompletionsModel
     from agents.tool import function_tool
     HAS_AGENTS = True
 except ImportError:
@@ -12,6 +15,7 @@ except ImportError:
     def function_tool(func):
         return func
     print("Warning: 'openai-agents' module not found. Agent functionality will be disabled.")
+
 from ..mcp_server.tools import (
     add_task, list_tasks, complete_task, update_task, delete_task
 )
@@ -164,6 +168,27 @@ def create_todo_agent(user_id: str):
     if not HAS_AGENTS:
         return None
         
+    # Ensure environment variables are loaded
+    if not os.environ.get("GEMINI_API_KEY"):
+        from dotenv import load_dotenv
+        load_dotenv()
+        print("Explicitly loaded dotenv in create_todo_agent")
+
+    model_name = os.environ.get("GEMINI_MODEL_NAME", "gemini-2.5-flash")
+    api_key = os.environ.get("GEMINI_API_KEY")
+    
+    if not api_key:
+        print("CRITICAL ERROR: GEMINI_API_KEY not found in environment!")
+    else:
+        # Debug print (partial key)
+        print(f"Using Gemini API Key: {api_key[:10]}... Model: {model_name}")
+
+    # Static client for direct OpenAI-like calls
+    gemini_client = AsyncOpenAI(
+        api_key=api_key or "missing_key_placeholder", # Prevent immediate crash to allow logging
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+    )
+
     return Agent(
         name="TodoManager",
         instructions=f"""
@@ -190,8 +215,12 @@ def create_todo_agent(user_id: str):
             update_task_tool,
             delete_task_tool
         ],
-        model="gpt-4-turbo-preview"
+        model=OpenAIChatCompletionsModel(
+            model=model_name,
+            openai_client=gemini_client
+        )
     )
+
 
 
 async def process_message(message: str, user_id: str) -> Dict[str, Any]:

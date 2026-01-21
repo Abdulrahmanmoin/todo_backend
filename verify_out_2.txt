@@ -1,0 +1,5 @@
+Set fake GEMINI_API_KEY for testing
+HAS_AGENTS: True
+Successfully created agent: TodoManager
+Model type: <class 'agents.models.openai_chatcompletions.OpenAIChatCompletionsModel'>
+Client base_url: https://generativelanguage.googleapis.com/v1beta/openai/

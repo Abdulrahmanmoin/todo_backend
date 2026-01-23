@@ -20,6 +20,8 @@ engine = create_async_engine(
 )
 
 
+from contextlib import asynccontextmanager
+
 async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
     """
     Get async database session.

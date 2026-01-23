@@ -31,13 +31,20 @@ async def add_task_tool(title: str, user_id: str, description: Optional[str] = N
         user_id: ID of the user creating the task
         description: Description of the task (optional)
     """
-    # Create a mock context object for the MCP tool
-    context = {}
     params = {"title": title, "description": description, "user_id": user_id}
-    result = await add_task(context, params)
+    try:
+        result = await add_task(params)
+    except Exception as e:
+        print(f"DEBUG: Error in add_task_tool: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
-    # Parse the result from the CallToolResult content
-    # The result is now a CallToolResult with content as a list of TextContent objects
+    # If the result is already a dictionary (direct core function call), return it
+    if isinstance(result, dict):
+        return result
+
+    # Parse the result from the CallToolResult content (if it's an MCP result)
     if hasattr(result, 'content') and result.content:
         text_content = result.content[0]  # Get first content item
         content = json.loads(text_content.text)
@@ -57,16 +64,23 @@ async def list_tasks_tool(user_id: str, completed: Optional[bool] = None) -> Dic
         user_id: ID of the user whose tasks to list
         completed: Filter by completion status (optional)
     """
-    # Create a mock context object for the MCP tool
-    context = {}
     filters = {}
     if completed is not None:
         filters["completed"] = completed
     params = {"user_id": user_id, "filters": filters}
-    result = await list_tasks(context, params)
+    try:
+        result = await list_tasks(params)
+    except Exception as e:
+        print(f"DEBUG: Error in list_tasks_tool: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+    # If the result is already a dictionary (direct core function call), return it
+    if isinstance(result, dict):
+        return result
 
     # Parse the result from the CallToolResult content
-    # The result is now a CallToolResult with content as a list of TextContent objects
     if hasattr(result, 'content') and result.content:
         text_content = result.content[0]  # Get first content item
         content = json.loads(text_content.text)
@@ -87,13 +101,20 @@ async def complete_task_tool(task_id: int, user_id: str, completed: bool) -> Dic
         user_id: ID of the user who owns the task
         completed: Whether the task is completed or not
     """
-    # Create a mock context object for the MCP tool
-    context = {}
     params = {"task_id": task_id, "user_id": user_id, "completed": completed}
-    result = await complete_task(context, params)
+    try:
+        result = await complete_task(params)
+    except Exception as e:
+        print(f"DEBUG: Error in complete_task_tool: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+    # If the result is already a dictionary (direct core function call), return it
+    if isinstance(result, dict):
+        return result
 
     # Parse the result from the CallToolResult content
-    # The result is now a CallToolResult with content as a list of TextContent objects
     if hasattr(result, 'content') and result.content:
         text_content = result.content[0]  # Get first content item
         content = json.loads(text_content.text)
@@ -115,18 +136,25 @@ async def update_task_tool(task_id: int, user_id: str, title: Optional[str] = No
         title: New title for the task (optional)
         description: New description for the task (optional)
     """
-    # Create a mock context object for the MCP tool
-    context = {}
     params = {"task_id": task_id, "user_id": user_id}
     if title is not None:
         params["title"] = title
     if description is not None:
         params["description"] = description
 
-    result = await update_task(context, params)
+    try:
+        result = await update_task(params)
+    except Exception as e:
+        print(f"DEBUG: Error in update_task_tool: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+    # If the result is already a dictionary (direct core function call), return it
+    if isinstance(result, dict):
+        return result
 
     # Parse the result from the CallToolResult content
-    # The result is now a CallToolResult with content as a list of TextContent objects
     if hasattr(result, 'content') and result.content:
         text_content = result.content[0]  # Get first content item
         content = json.loads(text_content.text)
@@ -146,13 +174,20 @@ async def delete_task_tool(task_id: int, user_id: str) -> Dict[str, Any]:
         task_id: ID of the task to delete
         user_id: ID of the user who owns the task
     """
-    # Create a mock context object for the MCP tool
-    context = {}
     params = {"task_id": task_id, "user_id": user_id}
-    result = await delete_task(context, params)
+    try:
+        result = await delete_task(params)
+    except Exception as e:
+        print(f"DEBUG: Error in delete_task_tool: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
+
+    # If the result is already a dictionary (direct core function call), return it
+    if isinstance(result, dict):
+        return result
 
     # Parse the result from the CallToolResult content
-    # The result is now a CallToolResult with content as a list of TextContent objects
     if hasattr(result, 'content') and result.content:
         text_content = result.content[0]  # Get first content item
         content = json.loads(text_content.text)

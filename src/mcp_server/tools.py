@@ -22,7 +22,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy import and_
 from ..models.task import Task
-from ..database import get_async_session
+from ..database.connection import get_async_session
 from ..config import settings
 from contextlib import asynccontextmanager
 import time
@@ -67,8 +67,19 @@ server = Server("todo-mcp-server")
 @asynccontextmanager
 async def get_db_session():
     """Get database session for use in tools."""
-    async with get_async_session() as session:
-        yield session
+    try:
+        # get_async_session is a plain async generator
+        session_gen = get_async_session()
+        session = await anext(session_gen)
+        try:
+            yield session
+        finally:
+            await session_gen.aclose()
+    except Exception as e:
+        logger.error(f"Error in get_db_session: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise
 
 
 async def validate_user_access(session: AsyncSession, user_id: str, task_id: Optional[int] = None) -> bool:
@@ -97,6 +108,10 @@ async def add_task_core(params: Dict[str, Any]) -> Dict[str, Any]:
             logger.warning(f"Invalid user access for user {user_id}")
             raise ValueError("Invalid user access")
 
+        if isinstance(user_id, str):
+            import uuid
+            user_id = uuid.UUID(user_id)
+
         # Create the task
         task = Task(
             title=title,
@@ -108,17 +123,17 @@ async def add_task_core(params: Dict[str, Any]) -> Dict[str, Any]:
         await session.commit()
         await session.refresh(task)
 
-        logger.info(f"Successfully added task {task.id} for user {user_id}")
+        logger.info(f"Successfully added task {task.task_id} for user {user_id}")
 
         return {
             "success": True,
-            "task_id": task.id,
+            "task_id": str(task.task_id),
             "task": {
-                "id": task.id,
+                "id": str(task.task_id),
                 "title": task.title,
                 "description": task.description,
-                "completed": task.completed,
-                "user_id": task.user_id,
+                "completed": task.is_completed,
+                "user_id": str(task.user_id),
                 "created_at": task.created_at.isoformat(),
                 "updated_at": task.updated_at.isoformat()
             }
@@ -142,11 +157,15 @@ async def list_tasks_core(params: Dict[str, Any]) -> Dict[str, Any]:
             logger.warning(f"Invalid user access for user {user_id}")
             raise ValueError("Invalid user access")
 
+        if isinstance(user_id, str):
+            import uuid
+            user_id = uuid.UUID(user_id)
+
         # Build query with filters
         query = select(Task).where(Task.user_id == user_id)
 
         if "completed" in filters:
-            query = query.where(Task.completed == filters["completed"])
+            query = query.where(Task.is_completed == filters["completed"])
             logger.debug(f"Applying completed filter: {filters['completed']}")
 
         result = await session.exec(query)
@@ -157,11 +176,11 @@ async def list_tasks_core(params: Dict[str, Any]) -> Dict[str, Any]:
         tasks_list = []
         for task in tasks:
             tasks_list.append({
-                "id": task.id,
+                "id": str(task.task_id),
                 "title": task.title,
                 "description": task.description,
-                "completed": task.completed,
-                "user_id": task.user_id,
+                "completed": task.is_completed,
+                "user_id": str(task.user_id),
                 "created_at": task.created_at.isoformat(),
                 "updated_at": task.updated_at.isoformat()
             })
@@ -190,8 +209,16 @@ async def complete_task_core(params: Dict[str, Any]) -> Dict[str, Any]:
             logger.warning(f"Invalid user access for user {user_id}")
             raise ValueError("Invalid user access")
 
+        if isinstance(user_id, str):
+            import uuid
+            user_id = uuid.UUID(user_id)
+            
+        if isinstance(task_id, str):
+            import uuid
+            task_id = uuid.UUID(task_id)
+
         # Get the task
-        result = await session.exec(select(Task).where((Task.id == task_id) & (Task.user_id == user_id)))
+        result = await session.exec(select(Task).where((Task.task_id == task_id) & (Task.user_id == user_id)))
         task = result.first()
 
         if not task:
@@ -199,21 +226,27 @@ async def complete_task_core(params: Dict[str, Any]) -> Dict[str, Any]:
             raise ValueError("Task not found or access denied")
 
         # Update the task
-        task.completed = completed
+        task.is_completed = completed
+        if completed:
+            from datetime import datetime
+            task.completed_at = datetime.utcnow()
+        else:
+            task.completed_at = None
+            
         session.add(task)
         await session.commit()
         await session.refresh(task)
 
-        logger.info(f"Successfully updated task {task.id} completion status for user {user_id}")
+        logger.info(f"Successfully updated task {task.task_id} completion status for user {user_id}")
 
         return {
             "success": True,
             "task": {
-                "id": task.id,
+                "id": str(task.task_id),
                 "title": task.title,
                 "description": task.description,
-                "completed": task.completed,
-                "user_id": task.user_id,
+                "completed": task.is_completed,
+                "user_id": str(task.user_id),
                 "created_at": task.created_at.isoformat(),
                 "updated_at": task.updated_at.isoformat()
             }
@@ -235,12 +268,16 @@ async def update_task_core(params: Dict[str, Any]) -> Dict[str, Any]:
     logger.info(f"Updating task {task_id} for user {user_id} with title: {title}, description: {description}")
 
     async with get_db_session() as session:
-        if not await validate_user_access(session, user_id):
-            logger.warning(f"Invalid user access for user {user_id}")
-            raise ValueError("Invalid user access")
+        if isinstance(user_id, str):
+            import uuid
+            user_id = uuid.UUID(user_id)
+            
+        if isinstance(task_id, str):
+            import uuid
+            task_id = uuid.UUID(task_id)
 
         # Get the task
-        result = await session.exec(select(Task).where((Task.id == task_id) & (Task.user_id == user_id)))
+        result = await session.exec(select(Task).where((Task.task_id == task_id) & (Task.user_id == user_id)))
         task = result.first()
 
         if not task:
@@ -248,9 +285,6 @@ async def update_task_core(params: Dict[str, Any]) -> Dict[str, Any]:
             raise ValueError("Task not found or access denied")
 
         # Update the task fields if provided
-        original_title = task.title
-        original_description = task.description
-
         if title is not None:
             task.title = title
         if description is not None:
@@ -260,16 +294,16 @@ async def update_task_core(params: Dict[str, Any]) -> Dict[str, Any]:
         await session.commit()
         await session.refresh(task)
 
-        logger.info(f"Successfully updated task {task.id} for user {user_id}")
+        logger.info(f"Successfully updated task {task.task_id} for user {user_id}")
 
         return {
             "success": True,
             "task": {
-                "id": task.id,
+                "id": str(task.task_id),
                 "title": task.title,
                 "description": task.description,
-                "completed": task.completed,
-                "user_id": task.user_id,
+                "completed": task.is_completed,
+                "user_id": str(task.user_id),
                 "created_at": task.created_at.isoformat(),
                 "updated_at": task.updated_at.isoformat()
             }
@@ -293,8 +327,16 @@ async def delete_task_core(params: Dict[str, Any]) -> Dict[str, Any]:
             logger.warning(f"Invalid user access for user {user_id}")
             raise ValueError("Invalid user access")
 
+        if isinstance(user_id, str):
+            import uuid
+            user_id = uuid.UUID(user_id)
+            
+        if isinstance(task_id, str):
+            import uuid
+            task_id = uuid.UUID(task_id)
+
         # Get the task
-        result = await session.exec(select(Task).where((Task.id == task_id) & (Task.user_id == user_id)))
+        result = await session.exec(select(Task).where((Task.task_id == task_id) & (Task.user_id == user_id)))
         task = result.first()
 
         if not task:

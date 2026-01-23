@@ -33,6 +33,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     # Startup
     print("Application starting up...")
+    loop = asyncio.get_running_loop()
+    print(f"Current event loop: {type(loop)}")
     try:
         await init_db()
         print("Database initialized successfully.")

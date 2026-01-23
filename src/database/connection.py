@@ -1,7 +1,8 @@
 import os
 import urllib.parse
 from dotenv import load_dotenv
-from typing import AsyncGenerator
+from contextlib import asynccontextmanager, contextmanager
+from typing import AsyncGenerator, Generator
 from sqlmodel import create_engine, Session, SQLModel
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
@@ -96,7 +97,7 @@ AsyncSessionLocal = async_sessionmaker(
 # Create sync session maker for sync operations
 SyncSessionLocal = Session
 
-def get_sync_session():
+def get_sync_session() -> Generator[Session, None, None]:
     """Get a synchronous session for sync operations like migrations."""
     with Session(sync_engine) as session:
         yield session

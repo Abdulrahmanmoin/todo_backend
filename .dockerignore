@@ -1,0 +1,79 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.virtualenv/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Environment files (secrets should not be in images)
+.env
+.env.*
+!.env.example
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.hypothesis/
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Development and debugging files
+*.log
+*.txt
+!requirements.txt
+check_*.py
+test_*.py
+comprehensive_test.py
+debug_*.py
+cleanup_*.py
+verify_*.py
+force_*.py
+install_*.py
+install_*.bat
+list_routes.py
+manual_*.py
+
+# Alembic migration files (these will be handled by CI/CD)
+# alembic/versions/*.py
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+.cache/
+
+# OS files
+Thumbs.db

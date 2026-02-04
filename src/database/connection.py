@@ -1,4 +1,5 @@
 import os
+import socket
 import urllib.parse
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager, contextmanager
@@ -63,6 +64,112 @@ else:
     async_db_url = base_url
     sync_db_url = base_url
 
+
+def resolve_hostname_to_ipv4(hostname: str) -> str:
+    """
+    Resolve a hostname to its IPv4 address.
+
+    This is useful in containerized environments where IPv6 resolution
+    may be attempted but not properly supported, causing connection failures.
+
+    Args:
+        hostname: The hostname to resolve (e.g., 'ep-name.us-east-1.aws.neon.tech')
+
+    Returns:
+        The resolved IPv4 address as a string
+
+    Raises:
+        socket.gaierror: If hostname resolution fails
+    """
+    # Use getaddrinfo to resolve hostname, forcing IPv4 (AF_INET)
+    addr_info = socket.getaddrinfo(hostname, None, socket.AF_INET, socket.SOCK_STREAM)
+    # addr_info is a list of tuples: (family, type, proto, canonname, sockaddr)
+    # sockaddr for IPv4 is (address, port), so we take [0][4][0]
+    ipv4_address = addr_info[0][4][0]
+    return ipv4_address
+
+
+def apply_ipv4_resolution(db_url: str) -> str:
+    """
+    Replace hostname in database URL with its IPv4 address if FORCE_IPV4 is set.
+
+    This is needed in Kubernetes/containerized environments where DNS may resolve
+    to IPv6 addresses that cannot be reached, causing connection failures.
+
+    For Neon databases, also adds the endpoint ID parameter required for SNI support
+    when connecting via IP address.
+
+    Args:
+        db_url: The original database URL with hostname
+
+    Returns:
+        Database URL with hostname replaced by IPv4 address if FORCE_IPV4=true,
+        otherwise returns original URL unchanged
+    """
+    force_ipv4 = os.environ.get("FORCE_IPV4", "false").lower() == "true"
+
+    if not force_ipv4:
+        return db_url
+
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Parse the URL to extract hostname
+    # Format: postgresql+psycopg://user:pass@hostname:port/dbname?params
+    try:
+        # Extract the hostname part between @ and / (or : for port)
+        if "@" in db_url:
+            # Split at @ to get the part after credentials
+            after_at = db_url.split("@", 1)[1]
+            # The hostname is before the next / or : (for port)
+            if "/" in after_at:
+                hostname_part = after_at.split("/", 1)[0]
+            else:
+                hostname_part = after_at
+
+            # If there's a port, extract just the hostname
+            if ":" in hostname_part:
+                hostname = hostname_part.split(":", 1)[0]
+                port_part = ":" + hostname_part.split(":", 1)[1]
+            else:
+                hostname = hostname_part
+                port_part = ""
+
+            # Resolve hostname to IPv4
+            ipv4_address = resolve_hostname_to_ipv4(hostname)
+            logger.info(f"Resolved {hostname} to IPv4 address: {ipv4_address}")
+
+            # Replace hostname with IPv4 address in URL
+            modified_url = db_url.replace(f"@{hostname_part}", f"@{ipv4_address}{port_part}")
+
+            # For Neon databases, add endpoint ID parameter for SNI support
+            # Extract endpoint ID (first part before first dot) from hostname
+            if "neon.tech" in hostname or "aws.neon" in hostname:
+                endpoint_id = hostname.split(".")[0]
+                logger.info(f"Detected Neon database, adding endpoint ID: {endpoint_id}")
+
+                # Add or append the endpoint parameter
+                if "?" in modified_url:
+                    # Parameters already exist, append with &
+                    modified_url += f"&options=endpoint%3D{endpoint_id}"
+                else:
+                    # No parameters yet, add with ?
+                    modified_url += f"?options=endpoint%3D{endpoint_id}"
+
+            logger.info(f"Database URL updated to use IPv4 address")
+
+            return modified_url
+    except Exception as e:
+        logger.warning(f"Failed to resolve hostname to IPv4: {e}. Using original URL.")
+        return db_url
+
+    return db_url
+
+
+# Apply IPv4 resolution if FORCE_IPV4 environment variable is set
+async_db_url = apply_ipv4_resolution(async_db_url)
+sync_db_url = apply_ipv4_resolution(sync_db_url)
+
 # Create async engine
 async_engine = create_async_engine(
     async_db_url,
@@ -108,9 +215,35 @@ async def get_async_session() -> AsyncGenerator[AsyncSession, None]:
         yield session
 
 async def init_db():
-    """Initialize the database - typically used for testing or initial setup."""
-    async with async_engine.begin() as conn:
-        await conn.run_sync(SQLModel.metadata.create_all)
+    """
+    Initialize the database with exponential backoff retry logic.
+    Retries connection failures with increasing delays (1s, 2s, 4s, 8s, 16s).
+    """
+    import asyncio
+    import logging
+
+    logger = logging.getLogger(__name__)
+    max_retries = 5
+    retry_count = 0
+    base_delay = 1  # Start with 1 second delay
+
+    while retry_count < max_retries:
+        try:
+            logger.info(f"Attempting database initialization (attempt {retry_count + 1}/{max_retries})")
+            async with async_engine.begin() as conn:
+                await conn.run_sync(SQLModel.metadata.create_all)
+            logger.info("Database initialized successfully")
+            return
+        except Exception as e:
+            retry_count += 1
+            if retry_count >= max_retries:
+                logger.error(f"Failed to initialize database after {max_retries} attempts: {e}")
+                raise
+
+            delay = base_delay * (2 ** (retry_count - 1))  # Exponential backoff: 1, 2, 4, 8, 16
+            logger.warning(f"Database connection failed (attempt {retry_count}/{max_retries}): {e}")
+            logger.info(f"Retrying in {delay} seconds...")
+            await asyncio.sleep(delay)
 
 # Function to get the correct engine based on environment
 def get_engine(is_async: bool = True):

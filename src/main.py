@@ -82,9 +82,10 @@ app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["Tasks"])
 @app.get("/health", tags=["Health"])
 async def health_check():
     """
-    Basic health check endpoint to verify the API is running.
+    Health check endpoint for Kubernetes liveness and readiness probes.
+    Returns 200 OK with healthy status when the API is running.
     """
-    return {"status": "ok", "message": "Todo AI Chatbot API is running"}
+    return {"status": "healthy"}
 
 
 @app.get("/api/test-route")
@@ -118,10 +119,12 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+    # Use PORT from environment or default to 8000 for consistency with Docker
+    port = int(os.getenv("PORT", "8000"))
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=7860,
+        port=port,
         reload=True,
         log_level="info"
     )
